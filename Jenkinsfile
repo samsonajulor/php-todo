@@ -57,32 +57,47 @@ pipeline {
       }
     }
 
+    stage('SonarQube Quality Gate') {
+      when { branch pattern: "^develop*|^hotfix*|^release*|^main*", comparator: "REGEXP"}
+        environment {
+            scannerHome = tool 'SonarQubeScanner'
+        }
+        steps {
+            withSonarQubeEnv('sonarqube') {
+                sh "${scannerHome}/bin/sonar-scanner -Dproject.settings=sonar-project.properties"
+            }
+            timeout(time: 1, unit: 'MINUTES') {
+                waitForQualityGate abortPipeline: true
+            }
+        }
+    }
+
     stage ('Package Artifact') {
     steps {
             sh 'zip -qr php-todo.zip ${WORKSPACE}/*'
      }
 
     }
-    // stage ('Upload Artifact to Artifactory') {
-    //       steps {
-    //         script { 
-    //              def server = Artifactory.server 'artifactory-server'                 
-    //              def uploadSpec = """{
-    //                 "files": [
-    //                   {
-    //                    "pattern": "php-todo.zip",
-    //                    "target": "PBL/php-todo",
-    //                    "props": "type=zip;status=ready"
+    stage ('Upload Artifact to Artifactory') {
+          steps {
+            script { 
+                 def server = Artifactory.server 'artifactory-server'                 
+                 def uploadSpec = """{
+                    "files": [
+                      {
+                       "pattern": "php-todo.zip",
+                       "target": "PBL/php-todo",
+                       "props": "type=zip;status=ready"
 
-    //                    }
-    //                 ]
-    //              }""" 
+                       }
+                    ]
+                 }""" 
 
-    //              server.upload spec: uploadSpec
-    //            }
-    //         }
+                 server.upload spec: uploadSpec
+               }
+            }
   
-    //     }
+        }
 
       stage ('Deploy to Dev Environment') {
     steps {
